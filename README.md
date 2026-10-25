@@ -1,12 +1,12 @@
-# WebShop GRPO — Qwen2.5-1.5B, 4×A100 80GB
+# WebShop GRPO — Qwen2.5-3B, 4×A100 80GB
 
-独立的 **Qwen2.5-1.5B-Instruct 纯 GRPO** 复现仓库，直接使用 [SDAR 公开代码](https://github.com/ZJU-REAL/SDAR) 的 WebShop GRPO baseline。无 SFT、OPSD、Teacher、skill、RETHINK、Analyzer 或付费 API。另一个模型尺寸独立发布，不在本仓库顺序训练。
+独立的 **Qwen2.5-3B-Instruct 纯 GRPO** 复现仓库，直接使用 [SDAR 公开代码](https://github.com/ZJU-REAL/SDAR) 的 WebShop GRPO baseline。无 SFT、OPSD、Teacher、skill、RETHINK、Analyzer 或付费 API。另一个模型尺寸独立发布，不在本仓库顺序训练。
 
 ## 固定配方
 
 | 项目 | 设置 |
 | --- | --- |
-| 初始化 | Qwen/Qwen2.5-1.5B-Instruct，固定公开 revision |
+| 初始化 | Qwen/Qwen2.5-3B-Instruct，固定公开 revision |
 | 上游 | SDAR `29dcb12a55d8fc17ba6ae03fd0a69048f43051f3` |
 | 原版参照 | `examples/grpo_trainer/run_webshop_8gpu.sh`，仅资源适配为四卡 |
 | GPU | 4×A100 **80GB**；4 FSDP ranks，2个 TP=2 生成副本 |
@@ -28,8 +28,8 @@
 以下示例使用公开 Conda；可用等价的 micromamba。环境和资产都由公开来源准备，无维护者本机文件或私人服务器依赖。
 
 ```bash
-git clone https://github.com/leiye302/grpo-webshop-qwen25-1.5b.git
-cd grpo-webshop-qwen25-1.5b
+git clone https://github.com/leiye302/grpo-webshop-qwen25-3b.git
+cd grpo-webshop-qwen25-3b
 conda create -n webshop-grpo python=3.10 openjdk=11 -c conda-forge -y
 conda activate webshop-grpo
 export JAVA_HOME="$CONDA_PREFIX"
@@ -49,7 +49,7 @@ set +a
 # 下载固定版本的公开商品/指令文件、NLP模型，运行原生Lucene索引程序。
 python src/assets.py --download --nlp --index --verify
 python src/env_smoke.py
-python src/setup.py --download-model 1.5b
+python src/setup.py --download-model 3b
 
 python src/setup.py --verify
 python scripts/check_release.py
@@ -64,18 +64,18 @@ bash scripts/train.sh --dry-run
 ## 2. 训练、续跑和导出
 
 ```bash
-# 本入口固定1.5b；用tmux或调度器保持进程。
+# 本入口固定3b；用tmux或调度器保持进程。
 bash scripts/train.sh
 
 # 意外退出后，确认旧控制器/worker都退出，再从最新完整断点续跑。
 bash scripts/train.sh --resume
 
 # 最终150步完成后导出HF模型。
-python src/run.py export --size 1.5b
+python src/run.py export --size 3b
 python src/report.py
 ```
 
-也可使用 `bash scripts/run_both.sh` 自动训练→导出→生成报告；这个兼容文件名在本独立仓库**只运行1.5b**。无需外层 torchrun。脚本不停止其他作业、不连接已有Ray集群、不自动抢卡。拒绝覆盖旧run；同一run使用控制器排他锁。
+也可使用 `bash scripts/run_both.sh` 自动训练→导出→生成报告；这个兼容文件名在本独立仓库**只运行3b**。无需外层 torchrun。脚本不停止其他作业、不连接已有Ray集群、不自动抢卡。拒绝覆盖旧run；同一run使用控制器排他锁。
 
 第一次GPU运行仍需核实4rank、2个TP2副本、真实rollout、有限loss/grad、实际参数更新、首次完整存盘及GPU恢复。不要仅凭CPU测试认定150步训练已验收。
 
@@ -87,12 +87,12 @@ python src/report.py
 - 连续score：另保留原生 `task_score` 的0–1值和0–100显示值；不把部分匹配当成功。
 - 原生宽松动作解析不改。完整think/action协议、reasoning出现率仅为遥测，不作训练门禁。
 
-输出在 `runs/grpo_1.5b/`：`metrics.jsonl`、`evaluation/update_000`及其后每5步的summary/逐决策token文本和ID、原生验证日志、20步断点、最终150步和HF导出。初始base成绩来自update0，不预填成绩、不从测试曲线挑最优checkpoint冒充最终结果。
+输出在 `runs/grpo_3b/`：`metrics.jsonl`、`evaluation/update_000`及其后每5步的summary/逐决策token文本和ID、原生验证日志、20步断点、最终150步和HF导出。初始base成绩来自update0，不预填成绩、不从测试曲线挑最优checkpoint冒充最终结果。
 
 ```bash
 # 独立评测导出模型：仍为原版128条协议，使用新输出目录。
-bash scripts/eval.sh --model "$PWD/runs/grpo_1.5b/hf150" \
-  --run-dir "$PWD/runs/grpo_1.5b_final_eval"
+bash scripts/eval.sh --model "$PWD/runs/grpo_3b/hf150" \
+  --run-dir "$PWD/runs/grpo_3b_final_eval"
 python src/report.py
 ```
 
